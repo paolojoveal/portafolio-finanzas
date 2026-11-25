@@ -88,6 +88,11 @@ common/estilo.py              Estilo gráfico común
 tests/                        Pruebas automáticas
 ```
 
+## Otros proyectos
+
+- [auditoria-analitica-ventas](https://github.com/paolojoveal/auditoria-analitica-ventas): diez pruebas de auditoría interna en SQL sobre el 100% de las ventas de una empresa, con informe y papeles de trabajo en Excel.
+- [proyecciones-locales](https://github.com/paolojoveal/proyecciones-locales): el estimador de proyecciones locales desde cero, una simulación sobre la cobertura de sus intervalos y una aplicación al precio del cobre.
+
 ## Sobre mí
 
 **Paolo Jove** · Estudiante de 8.º semestre (por iniciar el 9.º) en la **Pontificia Universidad Católica del Perú (PUCP)**. Cursé **FM350 Advanced Corporate Finance** en el **LSE Summer School** (London School of Economics).
