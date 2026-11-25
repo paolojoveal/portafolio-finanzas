@@ -1,6 +1,6 @@
 {
-  "_nota": "Valores ILUSTRATIVOS para mostrar la mecánica del modelo. Antes de publicar conclusiones, reemplázalos con los EEFF auditados de la empresa (SMV: www.smv.gob.pe) y con datos de mercado vigentes.",
-  "empresa": "Empresa BVL (ej. Alicorp S.A.A.)",
+  "_nota": "Empresa FICTICIA. Los órdenes de magnitud son los de una empresa de consumo masivo listada en la BVL, pero ninguna cifra corresponde a una compañía real. Para valorizar una empresa de verdad, reemplaza estos valores con sus estados financieros auditados (SMV: www.smv.gob.pe) y con datos de mercado vigentes.",
+  "empresa": "Andina de Consumo S.A.A. (empresa ficticia)",
   "moneda": "S/ millones",
   "anio_base": 2025,
   "ventas_base": 14000,
