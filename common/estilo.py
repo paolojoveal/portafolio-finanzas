@@ -56,6 +56,7 @@ CUADRADO = (6.8, 5.2)
 
 def aplicar() -> None:
     """Fija los parámetros de matplotlib. Llamar una vez, antes de crear figuras."""
+    plt.switch_backend("Agg")        # las figuras solo se guardan en archivo: no hace falta una ventana
     mpl.rcParams.update({
         "figure.facecolor": SUPERFICIE, "axes.facecolor": SUPERFICIE,
         "savefig.facecolor": SUPERFICIE, "savefig.dpi": 170,
