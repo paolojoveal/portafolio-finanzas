@@ -1,0 +1,6 @@
+Modelo,Días,Excepciones,Esperadas,Kupiec (p),Independencia (p),Cobertura cond. (p),Basilea (250 d),VaR hoy (USD),ES hoy (USD)
+Histórico,2743,41,27.4,0.015,0.025,0.004,Amarillo,56045,67228
+Normal,2743,54,27.4,0.0,0.114,0.0,Rojo,44932,51693
+EWMA (RiskMetrics),2743,52,27.4,0.0,0.359,0.0,Amarillo,62738,71877
+t de Student,2743,40,27.4,0.024,0.021,0.006,Rojo,52456,72496
+Histórico filtrado,2743,35,27.4,0.164,0.47,0.292,Verde,79670,99709

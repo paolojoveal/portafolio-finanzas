@@ -1,21 +1,24 @@
 """Valor en Riesgo (VaR), Expected Shortfall y backtesting regulatorio.
 
-Portafolio: posición en acciones peruanas y ETF Perú, valorizada en USD.
+Portafolio de USD 1 millón en acciones peruanas y el ETF MSCI Peru. Se comparan cinco modelos
+de VaR y ES al 99% a 1 día (ventana móvil de 500 días):
 
-Modelos (ventana móvil de 500 días, nivel 99%, horizonte 1 día):
     - Simulación histórica
     - Paramétrico normal
     - EWMA / RiskMetrics (lambda = 0.94)
-    - Monte Carlo con t de Student (colas pesadas)
+    - Paramétrico t de Student (colas pesadas)
+    - Histórico filtrado: retornos reescalados por la volatilidad EWMA vigente (Hull y White, 1998)
 
-Backtesting:
-    - Test de Kupiec (proporción de fallas, POF)
-    - Test de independencia de Christoffersen y cobertura condicional
-    - Semáforo de Basilea (últimos 250 días)
+y se valida cada uno como lo haría un área de riesgos:
+
+    - Kupiec (1995): ¿el número de excepciones es el esperado?
+    - Christoffersen (1998): ¿las excepciones son independientes o llegan agrupadas?
+    - Cobertura condicional: ambas a la vez
+    - Semáforo de Basilea sobre los últimos 250 días
 
 Uso:
-    python var_backtesting.py          # precios reales (yfinance)
-    python var_backtesting.py --demo   # datos simulados GARCH(1,1)
+    python var_backtesting.py          # precios reales (Yahoo Finance)
+    python var_backtesting.py --demo   # retornos simulados GARCH(1,1) con colas pesadas
 """
 from __future__ import annotations
 
@@ -29,18 +32,22 @@ import pandas as pd
 from scipy import stats
 
 AQUI = Path(__file__).resolve().parent
-sys.path.append(str(AQUI.parent))
-SALIDA = AQUI / "resultados"
+sys.path.insert(0, str(AQUI.parent))
 
+from common import estilo  # noqa: E402
+
+SALIDA = AQUI / "resultados"
 PESOS = {"BAP": 0.35, "SCCO": 0.30, "BVN": 0.15, "EPU": 0.20}
-VALOR_PORTAFOLIO = 1_000_000  # USD
+VALOR_PORTAFOLIO = 1_000_000   # USD
 ALFA = 0.99
 VENTANA = 500
 LAMBDA = 0.94
+MODELOS = ["Histórico", "Normal", "EWMA (RiskMetrics)", "t de Student", "Histórico filtrado"]
 
 
-def datos_demo(n=2500, seed=3) -> pd.Series:
-    """Retornos con volatilidad agrupada (GARCH(1,1)) e innovaciones t, como en datos reales."""
+# ---------- datos ----------
+def datos_demo(n: int = 2500, seed: int = 3) -> pd.Series:
+    """Retornos con volatilidad agrupada (GARCH(1,1)) e innovaciones t con 5 grados de libertad."""
     rng = np.random.default_rng(seed)
     w, a, b = 2e-6, 0.08, 0.90
     r, s2 = np.zeros(n), np.full(n, w / (1 - a - b))
@@ -48,134 +55,186 @@ def datos_demo(n=2500, seed=3) -> pd.Series:
     for t in range(1, n):
         s2[t] = w + a * r[t - 1] ** 2 + b * s2[t - 1]
         r[t] = np.sqrt(s2[t]) * z[t] + 0.0003
-    return pd.Series(r, index=pd.bdate_range("2015-01-01", periods=n), name="portafolio")
+    return pd.Series(r, index=pd.bdate_range("2015-01-01", periods=n, name="fecha"), name="portafolio")
 
 
 def retornos(demo: bool) -> pd.Series:
+    """Retorno diario del portafolio con pesos fijos (se rebalancea cada día a los pesos objetivo)."""
     if demo:
         return datos_demo()
     from common.data import precios
     p = precios(list(PESOS), start="2014-01-01")
-    r = np.log(p / p.shift(1)).dropna()
-    return (r[list(PESOS)] @ pd.Series(PESOS)).rename("portafolio")
+    return (p.pct_change(fill_method=None).dropna() @ pd.Series(PESOS)).rename("portafolio")
 
 
-# ---------- modelos de VaR (devuelven VaR y ES como pérdidas positivas, en retorno) ----------
-def var_historico(x):
-    q = np.quantile(x, 1 - ALFA)
+# ---------- modelos: devuelven (VaR, ES) como pérdidas positivas, en retorno ----------
+def var_historico(x: np.ndarray, alfa: float = ALFA) -> tuple[float, float]:
+    q = np.quantile(x, 1 - alfa)
     return -q, -x[x <= q].mean()
 
 
-def var_normal(x):
+def var_normal(x: np.ndarray, alfa: float = ALFA) -> tuple[float, float]:
     mu, s = x.mean(), x.std(ddof=1)
-    z = stats.norm.ppf(1 - ALFA)
-    return -(mu + z * s), -(mu - s * stats.norm.pdf(z) / (1 - ALFA))
+    z = stats.norm.ppf(1 - alfa)
+    return -(mu + z * s), -mu + s * stats.norm.pdf(z) / (1 - alfa)
 
 
-def var_ewma(x):
-    pesos = LAMBDA ** np.arange(len(x))[::-1]
-    pesos = pesos * (1 - LAMBDA) / (1 - LAMBDA ** len(x))
-    s = np.sqrt(np.sum(pesos * x ** 2))
-    z = stats.norm.ppf(1 - ALFA)
-    return -z * s, s * stats.norm.pdf(z) / (1 - ALFA)
+def var_sigma(sigma: float, alfa: float = ALFA) -> tuple[float, float]:
+    """Normal de media cero con una volatilidad dada (la usa el modelo EWMA)."""
+    z = stats.norm.ppf(1 - alfa)
+    return -z * sigma, sigma * stats.norm.pdf(z) / (1 - alfa)
 
 
-def var_montecarlo_t(x, n_sim=20_000, rng=np.random.default_rng(0)):
-    df, loc, scale = stats.t.fit(x)
-    df = max(df, 2.5)
-    sim = stats.t.rvs(df, loc, scale, size=n_sim, random_state=rng)
-    q = np.quantile(sim, 1 - ALFA)
-    return -q, -sim[sim <= q].mean()
+def var_t(x: np.ndarray, alfa: float = ALFA) -> tuple[float, float]:
+    """t de Student ajustada por máxima verosimilitud. VaR y ES tienen fórmula cerrada."""
+    gl, loc, escala = stats.t.fit(x)
+    gl = max(gl, 2.5)                                    # con menos de ~2 grados de libertad el ES no existe
+    q = stats.t.ppf(1 - alfa, gl)
+    es_estandar = stats.t.pdf(q, gl) / (1 - alfa) * (gl + q ** 2) / (gl - 1)
+    return -(loc + escala * q), -loc + escala * es_estandar
 
 
-MODELOS = {"Histórico": var_historico, "Normal": var_normal,
-           "EWMA (RiskMetrics)": var_ewma, "Monte Carlo t": var_montecarlo_t}
+def volatilidad_ewma(r: np.ndarray, lam: float = LAMBDA, semilla: int = VENTANA) -> np.ndarray:
+    """sigma[t]: volatilidad pronosticada para el día t con datos hasta t-1.
+    sigma²[t] = lam·sigma²[t-1] + (1 - lam)·r²[t-1], iniciada con la varianza de los primeros `semilla` días."""
+    s2 = np.empty(len(r))
+    s2[0] = np.var(r[:semilla])
+    for t in range(1, len(r)):
+        s2[t] = lam * s2[t - 1] + (1 - lam) * r[t - 1] ** 2
+    return np.sqrt(s2)
+
+
+def var_historico_filtrado(x: np.ndarray, sigma_x: np.ndarray, sigma_hoy: float, alfa: float = ALFA):
+    """Histórico sobre retornos llevados a la volatilidad de hoy: x_s · sigma_hoy / sigma_s."""
+    return var_historico(x / sigma_x * sigma_hoy, alfa)
 
 
 def estimar(r: pd.Series) -> pd.DataFrame:
-    x = r.values
+    x = r.to_numpy()
+    sigma = volatilidad_ewma(x)
     filas = []
     for t in range(VENTANA, len(x)):
-        ventana = x[t - VENTANA:t]
+        v = x[t - VENTANA:t]
+        medidas = {
+            "Histórico": var_historico(v),
+            "Normal": var_normal(v),
+            "EWMA (RiskMetrics)": var_sigma(sigma[t]),
+            "t de Student": var_t(v),
+            "Histórico filtrado": var_historico_filtrado(v, sigma[t - VENTANA:t], sigma[t]),
+        }
         fila = {"fecha": r.index[t], "retorno": x[t]}
-        for nombre, f in MODELOS.items():
-            fila[f"VaR {nombre}"], fila[f"ES {nombre}"] = f(ventana)
+        for nombre, (var, es) in medidas.items():
+            fila[f"VaR {nombre}"], fila[f"ES {nombre}"] = var, es
         filas.append(fila)
     return pd.DataFrame(filas).set_index("fecha")
 
 
 # ---------- backtesting ----------
-def kupiec(fallas: np.ndarray, p=1 - ALFA):
-    n, x = len(fallas), fallas.sum()
-    pi = x / n
-    if x == 0:
-        lr = -2 * n * np.log(1 - p)
-    else:
-        lr = -2 * ((n - x) * np.log(1 - p) + x * np.log(p)
-                   - (n - x) * np.log(1 - pi) - x * np.log(pi))
-    return lr, 1 - stats.chi2.cdf(lr, 1)
+def _ll(p: float, ceros: int, unos: int) -> float:
+    """Log-verosimilitud Bernoulli, con la convención 0·ln(0) = 0."""
+    return (ceros * np.log(1 - p) if ceros else 0.0) + (unos * np.log(p) if unos else 0.0)
 
 
-def christoffersen(fallas: np.ndarray):
+def kupiec(fallas: np.ndarray, p: float = 1 - ALFA) -> tuple[float, float]:
+    """Proporción de fallas: H0, la frecuencia de excepciones es p. LR ~ chi2(1)."""
+    n, x = len(fallas), int(fallas.sum())
+    lr = -2 * (_ll(p, n - x, x) - _ll(x / n, n - x, x))
+    return lr, float(stats.chi2.sf(lr, 1))
+
+
+def christoffersen(fallas: np.ndarray) -> tuple[float, float]:
+    """Independencia: H0, la probabilidad de una excepción no depende de si ayer hubo una. LR ~ chi2(1)."""
     f = fallas.astype(int)
-    n00 = np.sum((f[:-1] == 0) & (f[1:] == 0)); n01 = np.sum((f[:-1] == 0) & (f[1:] == 1))
-    n10 = np.sum((f[:-1] == 1) & (f[1:] == 0)); n11 = np.sum((f[:-1] == 1) & (f[1:] == 1))
-    pi0 = n01 / max(n00 + n01, 1); pi1 = n11 / max(n10 + n11, 1)
-    pi = (n01 + n11) / max(n00 + n01 + n10 + n11, 1)
-    def ll(p, a, b):
-        return (a * np.log(1 - p) if a else 0) + (b * np.log(p) if b and p > 0 else 0)
-    lr = -2 * (ll(pi, n00 + n10, n01 + n11) - ll(pi0, n00, n01) - ll(pi1, n10, n11))
-    return lr, 1 - stats.chi2.cdf(lr, 1)
+    n00 = int(((f[:-1] == 0) & (f[1:] == 0)).sum()); n01 = int(((f[:-1] == 0) & (f[1:] == 1)).sum())
+    n10 = int(((f[:-1] == 1) & (f[1:] == 0)).sum()); n11 = int(((f[:-1] == 1) & (f[1:] == 1)).sum())
+    pi0 = n01 / max(n00 + n01, 1)
+    pi1 = n11 / max(n10 + n11, 1)
+    pi = (n01 + n11) / max(len(f) - 1, 1)
+    lr = -2 * (_ll(pi, n00 + n10, n01 + n11) - _ll(pi0, n00, n01) - _ll(pi1, n10, n11))
+    return lr, float(stats.chi2.sf(lr, 1))
 
 
 def semaforo_basilea(fallas_250: int) -> str:
+    """Zonas del Comité de Basilea para 250 días al 99%: verde hasta 4, amarillo de 5 a 9, rojo desde 10."""
     return "Verde" if fallas_250 <= 4 else ("Amarillo" if fallas_250 <= 9 else "Rojo")
 
 
 def backtest(est: pd.DataFrame) -> pd.DataFrame:
     filas = []
     for nombre in MODELOS:
-        fallas = (est["retorno"] < -est[f"VaR {nombre}"]).values
+        fallas = (est["retorno"] < -est[f"VaR {nombre}"]).to_numpy()
         lr_uc, p_uc = kupiec(fallas)
         lr_ind, p_ind = christoffersen(fallas)
-        lr_cc = lr_uc + lr_ind
         filas.append({
-            "Modelo": nombre, "Días": len(fallas), "Fallas": int(fallas.sum()),
+            "Modelo": nombre, "Días": len(fallas), "Excepciones": int(fallas.sum()),
             "Esperadas": round(len(fallas) * (1 - ALFA), 1),
-            "Kupiec p-valor": round(p_uc, 3),
-            "Christoffersen ind. p-valor": round(p_ind, 3),
-            "Cobertura cond. p-valor": round(1 - stats.chi2.cdf(lr_cc, 2), 3),
-            "Basilea (250d)": semaforo_basilea(int(fallas[-250:].sum())),
-            f"VaR actual (USD)": round(est[f"VaR {nombre}"].iloc[-1] * VALOR_PORTAFOLIO),
-            f"ES actual (USD)": round(est[f"ES {nombre}"].iloc[-1] * VALOR_PORTAFOLIO),
+            "Kupiec (p)": round(p_uc, 3), "Independencia (p)": round(p_ind, 3),
+            "Cobertura cond. (p)": round(float(stats.chi2.sf(lr_uc + lr_ind, 2)), 3),
+            "Basilea (250 d)": semaforo_basilea(int(fallas[-250:].sum())),
+            "VaR hoy (USD)": round(est[f"VaR {nombre}"].iloc[-1] * VALOR_PORTAFOLIO),
+            "ES hoy (USD)": round(est[f"ES {nombre}"].iloc[-1] * VALOR_PORTAFOLIO),
         })
     return pd.DataFrame(filas).set_index("Modelo")
 
 
-def grafico(est: pd.DataFrame):
-    SALIDA.mkdir(exist_ok=True)
-    fig, ax = plt.subplots(figsize=(10, 4.5))
-    ax.plot(est.index, est["retorno"], color="grey", lw=0.6, label="Retorno diario")
-    for nombre, c in zip(["Histórico", "EWMA (RiskMetrics)"], ["#2E5C8A", "#C0392B"]):
-        ax.plot(est.index, -est[f"VaR {nombre}"], color=c, lw=1.2, label=f"-VaR 99% {nombre}")
-        f = est["retorno"] < -est[f"VaR {nombre}"]
-        ax.scatter(est.index[f], est["retorno"][f], color=c, s=12, zorder=3)
-    ax.set_title("VaR 99% a 1 día y excepciones")
-    ax.legend(fontsize=8); ax.grid(alpha=0.3)
-    fig.tight_layout(); fig.savefig(SALIDA / "var_excepciones.png", dpi=150); plt.close(fig)
+# ---------- figuras ----------
+def figura_excepciones(est: pd.DataFrame, pie: str):
+    fig, ax = plt.subplots(figsize=(10, 4.8))
+    ax.plot(est.index, est["retorno"] * 100, color=estilo.CONTEXTO, lw=0.6, label="Retorno diario del portafolio")
+    for nombre, color in [("Histórico", estilo.AZUL), ("Histórico filtrado", estilo.NARANJA)]:
+        limite = -est[f"VaR {nombre}"] * 100
+        ax.plot(est.index, limite, color=color, lw=1.6, label=f"VaR 99%, {nombre.lower()}")
+        f = est["retorno"] * 100 < limite
+        ax.scatter(est.index[f], est["retorno"][f] * 100, s=34, color=color, edgecolor=estilo.SUPERFICIE,
+                   linewidth=1.2, zorder=4)
+    estilo.titulo(ax, "VaR al 99% a un día y excepciones",
+                  "Los puntos marcan los días en que la pérdida superó el VaR de cada modelo")
+    estilo.formato_pct(ax)
+    ax.legend(loc="lower right", ncol=1)
+    return estilo.guardar(fig, SALIDA / "var_excepciones.png", pie)
+
+
+def figura_backtesting(tabla: pd.DataFrame, pie: str):
+    fig, ax = plt.subplots(figsize=(9, 3.9))
+    y = np.arange(len(tabla))
+    ax.barh(y, tabla["Excepciones"], height=0.42, color=estilo.AZUL)
+    esperadas = float(tabla["Esperadas"].iloc[0])
+    ax.axvline(esperadas, color=estilo.TINTA_2, lw=1.2, ls=(0, (4, 3)))
+    estilo.etiqueta(ax, esperadas, -0.72, f"Esperadas: {esperadas:.0f}", dx=6, fontsize=8.5)
+    for i, (_, f) in enumerate(tabla.iterrows()):
+        veredicto = "pasa ambas pruebas" if min(f["Kupiec (p)"], f["Independencia (p)"]) >= 0.05 else (
+            "falla en cantidad" if f["Kupiec (p)"] < 0.05 <= f["Independencia (p)"] else (
+                "falla en independencia" if f["Independencia (p)"] < 0.05 <= f["Kupiec (p)"] else "falla ambas pruebas"))
+        estilo.etiqueta(ax, f["Excepciones"], i, f"{f['Excepciones']:.0f}  ·  {veredicto}")
+    ax.set_yticks(y, tabla.index)
+    ax.set_ylim(len(tabla) - 0.5, -0.95)
+    ax.set_xlim(0, max(tabla["Excepciones"].max(), esperadas) * 1.65)
+    ax.set_xlabel(f"Excepciones en {int(tabla['Días'].iloc[0]):,} días")
+    ax.grid(axis="y", visible=False)
+    ax.grid(axis="x", visible=True)
+    estilo.titulo(ax, "Excepciones por modelo frente a las esperadas",
+                  "Pruebas al 5%: Kupiec (cantidad) y Christoffersen (independencia)")
+    return estilo.guardar(fig, SALIDA / "backtesting.png", pie)
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--demo", action="store_true")
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--demo", action="store_true", help="usa retornos simulados (sin conexión)")
     args = ap.parse_args()
+    estilo.aplicar()
     r = retornos(args.demo)
     est = estimar(r)
     tabla = backtest(est)
-    pd.set_option("display.width", 200)
+    pd.set_option("display.width", 220)
+    print(f"Evaluación de {est.index[0]:%Y-%m-%d} a {est.index[-1]:%Y-%m-%d}" + (" · DATOS SIMULADOS" if args.demo else ""))
     print(tabla.to_string())
-    grafico(est)
+    SALIDA.mkdir(exist_ok=True)
+    pie = ("Datos simulados (modo demo)." if args.demo else
+           f"Fuente: Yahoo Finance, precios ajustados. Evaluación de {est.index[0]:%m/%Y} a {est.index[-1]:%m/%Y}. Elaboración propia.")
+    figura_excepciones(est, pie)
+    figura_backtesting(tabla, pie)
     tabla.to_csv(SALIDA / "backtesting.csv")
+    print(f"\nFiguras y tabla en {SALIDA.relative_to(AQUI.parent)}/")
 
 
 if __name__ == "__main__":
