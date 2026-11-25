@@ -1,0 +1,37 @@
+name: Pruebas
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Pruebas unitarias
+        run: pytest -q
+      - name: Los scripts corren de principio a fin (modo demo, sin conexión)
+        env:
+          MPLBACKEND: Agg
+        run: |
+          python 01-valorizacion-dcf/dcf.py --excel
+          python 02-optimizacion-portafolio/optimizacion.py --demo
+          python 03-var-backtesting/var_backtesting.py --demo
+          python 04-inflacion-bcrp/inflacion_bcrp.py --demo --repeticiones 200
+          python 05-riesgo-credito/scorecard.py
+          python 07-lse-fm350/estructura_capital.py
+          python 07-lse-fm350/lbo.py
+          python 07-lse-fm350/venture_capital.py
+          python 07-lse-fm350/fusiones.py
