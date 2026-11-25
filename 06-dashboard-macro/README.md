@@ -2,24 +2,33 @@
 
 **Área:** transversal (Estudios Económicos, Asset Management, Tesorería)
 
-Aplicación web en **Streamlit + Plotly** que reúne en una sola pantalla lo que un analista revisa cada mañana:
+**Pregunta:** ¿qué mira un analista cada mañana antes de opinar sobre el Perú?
 
-- **Indicadores clave:** inflación 12 meses, tasa de referencia, tipo de cambio y PBI, con su variación frente a hace un año.
-- **Política monetaria:** inflación, tasa de referencia y tasa real ex post sobre el rango meta del BCRP.
-- **Mercado:** desempeño relativo del MSCI Peru, Credicorp, Southern Copper y el cobre, más su volatilidad realizada.
-- **Dependencia del cobre:** correlación móvil de 6 meses de los activos peruanos con el precio del cobre.
+![Captura del tablero](captura.png)
 
-Los datos se descargan en vivo de la API del BCRP y de Yahoo Finance, con caché de 6 horas.
+## Qué muestra
+
+Aplicación web en **Streamlit y Plotly**, con datos del BCRP y de Yahoo Finance:
+
+- **Indicadores:** inflación, expectativas de inflación a 12 meses, tasa de referencia, tipo de cambio y PBI, cada uno con su cambio en 12 meses y la fecha del último dato.
+- **Política monetaria:** inflación y expectativas frente al rango meta, y la tasa de referencia real *ex ante* (tasa menos expectativas), que dice si la política aprieta o estimula.
+- **Sector externo:** tipo de cambio, riesgo país (EMBIG Perú) y precio del cobre.
+- **Mercado:** desempeño del MSCI Peru, Credicorp, Southern Copper y el cobre, y su volatilidad realizada.
+- **Dependencia del cobre:** correlación móvil de seis meses de los activos peruanos con el cobre.
+
+Los datos se guardan en caché seis horas. Cada serie del BCRP se valida contra su nombre oficial antes de mostrarse ([`common/data.py`](../common/data.py)).
 
 ## Cómo correrlo
 
 ```bash
 streamlit run 06-dashboard-macro/app.py              # datos reales
-streamlit run 06-dashboard-macro/app.py -- --demo    # datos simulados
+streamlit run 06-dashboard-macro/app.py -- --demo    # datos simulados, sin conexión
 ```
 
-Se puede publicar gratis en [Streamlit Community Cloud](https://streamlit.io/cloud) conectando este repositorio, para compartir el enlace en el CV.
+Para publicarlo con un enlace propio basta conectar este repositorio en [Streamlit Community Cloud](https://streamlit.io/cloud) e indicar `06-dashboard-macro/app.py` como archivo principal.
 
-## Qué demuestra
+## Límites
 
-Capacidad de convertir datos en una herramienta que otros usan: integración de APIs, caché, visualización interactiva y criterio para elegir qué indicadores importan.
+- La correlación con el cobre describe cuánto se mueven juntos los retornos, no causalidad.
+- Yahoo Finance no es una fuente oficial y a veces corta las descargas: el tablero reintenta y, si no logra datos completos, muestra el error en lugar de un gráfico a medias.
+- Las series del BCRP se publican con rezagos distintos (el PBI, dos meses), y por eso cada indicador lleva su propia fecha.
