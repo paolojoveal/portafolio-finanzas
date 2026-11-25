@@ -10,6 +10,7 @@ Proyectos aplicados al mercado peruano, desarrollados en Python, que cubren las 
 | 04 | [Inflación y política monetaria del BCRP](04-inflacion-bcrp) | Estudios Económicos | API del BCRP, regla de Taylor, filtro HP, VAR, impulso-respuesta, pronóstico |
 | 05 | [Scorecard de riesgo de crédito](05-riesgo-credito) | Riesgo de Crédito | WoE/IV, regresión logística, Gini, KS, PSI, pérdida esperada |
 | 06 | [Tablero macro-financiero del Perú](06-dashboard-macro) | Transversal | Streamlit, Plotly, APIs en vivo, caché |
+| 07 | [Finanzas corporativas avanzadas (LSE FM350)](07-lse-fm350) | Banca de Inversión · Private Equity | Estructura de capital óptima, APV, LBO, accretion/dilution, opciones reales |
 
 ## Instalación
 
@@ -32,8 +33,13 @@ common/data.py            Descarga de series del BCRP y precios de mercado
 04-inflacion-bcrp/
 05-riesgo-credito/
 06-dashboard-macro/       App de Streamlit
+07-lse-fm350/             Proyectos de finanzas corporativas avanzadas
 ```
 
 ## Sobre mí
 
-Estudiante interesado en prácticas pre-profesionales en finanzas y economía en Lima. <!-- Completa con tu universidad, ciclo, LinkedIn y correo. -->
+**Paolo Jove** · Estudiante de 8.º semestre (por iniciar el 9.º) en la **Pontificia Universidad Católica del Perú (PUCP)**. Cursé **FM350 Advanced Corporate Finance** en el **LSE Summer School** (London School of Economics).
+
+Busco prácticas pre-profesionales en Banca de Inversión, Asset Management, Finanzas Corporativas, Estudios Económicos y Gestión de Riesgos en Lima.
+
+[LinkedIn](https://www.linkedin.com/in/paolo-jove-085647127)
