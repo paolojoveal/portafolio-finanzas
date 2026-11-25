@@ -95,7 +95,7 @@ tests/                        Pruebas automáticas
 
 ## Sobre mí
 
-**Paolo Jove** · Estudiante de 8.º semestre (por iniciar el 9.º) en la **Pontificia Universidad Católica del Perú (PUCP)**. Cursé **FM350 Advanced Corporate Finance** en el **LSE Summer School** (London School of Economics).
+**Paolo Jove** · Estudiante de 8.º semestre (por iniciar el 9.º) en la **Pontificia Universidad Católica del Perú (PUCP)**. Cursé **FM350 Advanced Corporate Finance** de forma presencial en la **London School of Economics (LSE)**, en Londres.
 
 Busco prácticas pre-profesionales en Banca de Inversión, Asset Management, Finanzas Corporativas, Estudios Económicos y Gestión de Riesgos en Lima.
 

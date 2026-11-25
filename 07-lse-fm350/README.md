@@ -2,7 +2,7 @@
 
 **Área:** Banca de Inversión · Private Equity · Finanzas Corporativas
 
-Cuatro modelos sobre los temas que estudié en **FM350 Advanced Corporate Finance** (LSE Summer School, agosto de 2026): estructura de capital, private equity, venture capital y fusiones. Los modelos, el código y los supuestos son míos y están adaptados a empresas peruanas. No incluyen material ni casos del curso.
+Cuatro modelos sobre los temas que estudié en **FM350 Advanced Corporate Finance**, curso presencial de la **London School of Economics (LSE)** en Londres (agosto de 2026): estructura de capital, private equity, venture capital y fusiones. Los modelos, el código y los supuestos son míos y están adaptados a empresas peruanas. No incluyen material ni casos del curso.
 
 | Script | Pregunta | Resultado con los supuestos ilustrativos |
 |---|---|---|
