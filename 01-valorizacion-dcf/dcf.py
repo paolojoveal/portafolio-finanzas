@@ -6,6 +6,7 @@
     3. Valor terminal por dos métodos que se controlan entre sí: crecimiento perpetuo (Gordon) y
        múltiplo de salida EV/EBITDA. Cada uno reporta el supuesto que implica en el otro.
     4. Sensibilidad del precio objetivo al WACC y al crecimiento perpetuo, y gráfico de rangos.
+    5. Con --excel, el mismo modelo como libro de Excel con fórmulas vivas (`modelo_excel.py`).
 
 Uso:
     python dcf.py                              # usa supuestos.json
@@ -16,7 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -26,6 +27,7 @@ import pandas as pd
 AQUI = Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI.parent))
 
+import modelo_excel  # noqa: E402
 from common import estilo  # noqa: E402
 
 SALIDA = AQUI / "resultados"
@@ -165,29 +167,22 @@ def figura_sensibilidad(sens: pd.DataFrame, precio: float, ruta: Path, pie: str)
     return estilo.guardar(fig, ruta, pie)
 
 
-def exportar_excel(ruta: Path, s: dict, w: ResultadoWACC, proy: pd.DataFrame, valor: dict[str, dict],
-                   sens: pd.DataFrame) -> None:
-    supuestos = pd.Series({k: v for k, v in s.items() if not isinstance(v, (dict, list)) and not k.startswith("_")},
-                          name="valor").to_frame()
-    sens_x = sens.copy()
-    sens_x.index = [f"{x:.1%}" for x in sens.index]
-    sens_x.columns = [f"{x:.1%}" for x in sens.columns]
-    with pd.ExcelWriter(ruta, engine="openpyxl") as xw:
-        supuestos.to_excel(xw, sheet_name="Supuestos")
-        proy.round(1).T.to_excel(xw, sheet_name="Proyeccion")
-        pd.Series(asdict(w), name="valor").to_frame().to_excel(xw, sheet_name="WACC")
-        pd.DataFrame(valor).to_excel(xw, sheet_name="Valorizacion")
-        sens_x.round(2).to_excel(xw, sheet_name="Sensibilidad", index_label="WACC \\ g")
-        for hoja in xw.book.worksheets:
-            hoja.column_dimensions["A"].width = 34
-            for col in "BCDEFG":
-                hoja.column_dimensions[col].width = 16
+def comprobacion(s: dict) -> dict[str, float]:
+    """Los valores que la hoja «Comprobación» del Excel compara con sus fórmulas."""
+    w = calcular_wacc(s["wacc"], s["tasa_impuesto"])
+    proy = proyectar(s)
+    gordon = valorizar(proy, w.wacc, s["crecimiento_perpetuo"], s, "gordon")
+    multiplo = valorizar(proy, w.wacc, s["crecimiento_perpetuo"], s, "multiplo")
+    return {"wacc": w.wacc, **{f"fcff_{i}": float(v) for i, v in enumerate(proy["fcff"], start=1)},
+            "ev_gordon": gordon["enterprise_value"], "precio_gordon": gordon["precio_objetivo"],
+            "precio_multiplo": multiplo["precio_objetivo"],
+            "multiplo_implicito": gordon["multiplo_ev_ebitda_implicito"], "g_implicito": multiplo["g_implicito"]}
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--supuestos", default=AQUI / "supuestos.json", help="archivo JSON con los supuestos")
-    ap.add_argument("--excel", action="store_true", help="exporta también resultados/valorizacion.xlsx")
+    ap.add_argument("--excel", action="store_true", help="escribe también resultados/modelo_dcf.xlsx, con fórmulas")
     args = ap.parse_args()
     s = json.loads(Path(args.supuestos).read_text(encoding="utf-8"))
     estilo.aplicar()
@@ -231,8 +226,8 @@ def main():
     proy.round(2).to_csv(SALIDA / "proyeccion.csv")
     imprimible.round(2).to_csv(SALIDA / "sensibilidad.csv", index_label="WACC")
     if args.excel:
-        exportar_excel(SALIDA / "valorizacion.xlsx", s, w, proy, {"Gordon": gordon, "Multiplo": multiplo}, sens)
-        print(f"\nExcel guardado en {(SALIDA / 'valorizacion.xlsx').relative_to(AQUI.parent)}")
+        modelo_excel.construir(s, comprobacion(s), SALIDA / "modelo_dcf.xlsx")
+        print(f"\nModelo con fórmulas guardado en {(SALIDA / 'modelo_dcf.xlsx').relative_to(AQUI.parent)}")
 
 
 if __name__ == "__main__":

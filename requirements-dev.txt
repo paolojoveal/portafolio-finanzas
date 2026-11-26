@@ -1,1 +1,2 @@
 pytest>=8.0
+formulas>=1.2

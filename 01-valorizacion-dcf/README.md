@@ -14,7 +14,8 @@ Modelo de flujo de caja descontado (FCFF) con la estructura de un informe de *eq
 2. **Proyección a cinco años** de ventas, EBITDA, depreciación, capex y capital de trabajo.
 3. **Valor terminal por dos métodos**: crecimiento perpetuo (Gordon) y múltiplo de salida EV/EBITDA.
 4. **Control cruzado.** Cada método reporta el supuesto que implica en el otro: qué múltiplo equivale al crecimiento perpetuo elegido y qué crecimiento equivale al múltiplo elegido. Si las dos cifras no conversan, uno de los supuestos está mal.
-5. **Sensibilidad** al WACC y al crecimiento perpetuo, y exportación a Excel.
+5. **Sensibilidad** al WACC y al crecimiento perpetuo.
+6. **El mismo modelo en Excel, con fórmulas vivas:** se cambia un supuesto y el precio objetivo se recalcula.
 
 ## Resultados (empresa ficticia)
 
@@ -31,6 +32,27 @@ Modelo de flujo de caja descontado (FCFF) con la estructura de un informe de *eq
 ## Una decisión que cambia el resultado
 
 Con la convención de medio año, el flujo del año *t* se descuenta *t* − 0.5 años. El valor terminal de Gordon es una perpetuidad de flujos que también llegan a mitad de año, así que se descuenta *N* − 0.5 años. El de múltiplo de salida es el precio de una venta al cierre del año *N* y se descuenta *N* años. Descontar ambos *N* años, un error frecuente, subestima el valor de Gordon en (1 + WACC)^0.5: aquí, 4.5% del valor terminal y S/ 0.55 por acción.
+
+## El modelo en Excel
+
+[`resultados/modelo_dcf.xlsx`](resultados/modelo_dcf.xlsx) es el mismo modelo, escrito celda por celda como fórmulas por [`modelo_excel.py`](modelo_excel.py). Sirve para lo que una tabla de resultados no permite: cambiar un supuesto y ver qué pasa con el precio.
+
+| Hoja | Contenido |
+|---|---|
+| Supuestos | Todos los datos de entrada, en azul |
+| WACC | Beta apalancado, costo del capital propio en dólares y en soles, costo de la deuda y ponderación |
+| Proyección | De las ventas al flujo de caja libre, año por año |
+| Valorización | Descuento con convención de medio año, los dos valores terminales, el puente al precio por acción y el control cruzado |
+| Sensibilidad | El precio objetivo para 25 combinaciones de WACC y crecimiento perpetuo, cada una con su propia fórmula |
+| Comprobación | Lo que calcula Excel frente a lo que calculó Python, y la diferencia |
+
+Tres reglas de construcción:
+
+- **Los supuestos viven en una sola hoja.** En las hojas de cálculo no hay ninguna cifra escrita a mano, salvo el medio año con que empieza el descuento. Una prueba automática lo verifica.
+- **Azul para los supuestos y negro para las fórmulas,** la convención de los modelos financieros.
+- **El modelo se comprueba.** La hoja «Comprobación» dice «Sí» mientras las fórmulas reproduzcan el cálculo de Python. Además, las pruebas calculan el libro con un motor de fórmulas independiente de Excel y lo comparan con Python para tres juegos de supuestos, uno de ellos con tres años de proyección en lugar de cinco.
+
+El archivo guarda las fórmulas, no sus resultados: hay que abrirlo con Excel, LibreOffice o Google Sheets, que las calculan al abrir.
 
 ## Cómo correrlo
 

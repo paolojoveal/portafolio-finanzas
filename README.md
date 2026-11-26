@@ -11,7 +11,7 @@ Siete proyectos en Python aplicados al mercado peruano. Cubren valorización, ge
 
 | # | Proyecto | Pregunta | Resultado principal |
 |---|---|---|---|
-| 01 | [Valorización DCF](01-valorizacion-dcf) | ¿Cuánto vale la acción y qué tan sensible es esa cifra a los supuestos? | Dos métodos de valor terminal que se controlan entre sí: S/ 11.77 y S/ 11.49 por acción (empresa ficticia) |
+| 01 | [Valorización DCF](01-valorizacion-dcf) | ¿Cuánto vale la acción y qué tan sensible es esa cifra a los supuestos? | Dos métodos de valor terminal que se controlan entre sí: S/ 11.77 y S/ 11.49 por acción (empresa ficticia). Incluye el modelo en Excel con fórmulas vivas |
 | 02 | [Optimización de portafolio](02-optimizacion-portafolio) | ¿Le gana un portafolio optimizado a repartir en partes iguales? | En 141 meses fuera de muestra, no con claridad: 1/N y paridad de riesgo empatan en Sharpe (0.55 y 0.56) y máximo Sharpe rota el portafolio 2.2 veces al año |
 | 03 | [VaR y backtesting](03-var-backtesting) | ¿Qué modelo de VaR sobrevive a las pruebas regulatorias? | De cinco modelos, solo el histórico filtrado pasa Kupiec y Christoffersen en 2 743 días |
 | 04 | [Inflación y política monetaria](04-inflacion-bcrp) | ¿A qué responde el BCRP y cuánto tarda la tasa en bajar la inflación? | Responde a las expectativas (φ = 3.0), no a la inflación del mes (φ = 1.0); el efecto máximo llega a los dos años |
@@ -67,7 +67,7 @@ pytest
 ## Cómo está hecho
 
 - **Datos que se verifican solos.** Cada serie del BCRP se pide por separado y se comprueba que el nombre oficial que devuelve la API sea el esperado. La API devuelve las series de un pedido conjunto en su propio orden, así que confiar en la posición etiqueta la tasa de referencia como inflación sin que nada falle. Las descargas se reintentan y una descarga incompleta nunca se guarda en caché ([`common/data.py`](common/data.py)).
-- **Pruebas con respuesta conocida.** Más de 50 pruebas en [`tests/`](tests): el VAR propio da los mismos coeficientes que `statsmodels`, el ES de la t de Student coincide con una simulación, la regla de Taylor recupera los parámetros de una economía simulada, el backtest no usa información futura y la tarjeta de puntaje suma exactamente el puntaje del modelo.
+- **Pruebas con respuesta conocida.** Más de 60 pruebas en [`tests/`](tests): el VAR propio da los mismos coeficientes que `statsmodels`, el ES de la t de Student coincide con una simulación, la regla de Taylor recupera los parámetros de una economía simulada, el backtest no usa información futura, la tarjeta de puntaje suma exactamente el puntaje del modelo y las fórmulas del modelo en Excel dan lo mismo que Python.
 - **Integración continua.** GitHub Actions corre las pruebas y los nueve scripts en cada cambio.
 - **Un solo estilo gráfico.** Todas las figuras salen de [`common/estilo.py`](common/estilo.py): el color cumple una función (identidad, magnitud o signo), un solo eje por gráfico y la fuente de los datos al pie.
 - **Límites a la vista.** Cada README dice qué supuestos sostienen el resultado y qué no se puede concluir de él.
@@ -77,7 +77,7 @@ pytest
 ```
 common/data.py                Descarga y validación de series del BCRP y precios de mercado
 common/estilo.py              Estilo gráfico común
-01-valorizacion-dcf/          Modelo DCF y supuestos.json
+01-valorizacion-dcf/          Modelo DCF, supuestos.json y el modelo en Excel con fórmulas
 02-optimizacion-portafolio/   Cinco estrategias y backtest fuera de muestra
 03-var-backtesting/           Cinco modelos de VaR y su validación
 04-inflacion-bcrp/            Regla de Taylor, VAR recursivo y pronóstico
@@ -90,6 +90,7 @@ tests/                        Pruebas automáticas
 ## Otros proyectos
 
 - [auditoria-analitica-ventas](https://github.com/paolojoveal/auditoria-analitica-ventas): diez pruebas de auditoría interna en SQL sobre el 100% de las ventas de una empresa, con informe y papeles de trabajo en Excel.
+- [muestreo-auditoria](https://github.com/paolojoveal/muestreo-auditoria): muestreo estadístico para probar controles y saldos, un caso completo y una simulación de lo que cada método promete.
 - [proyecciones-locales](https://github.com/paolojoveal/proyecciones-locales): el estimador de proyecciones locales desde cero, una simulación sobre la cobertura de sus intervalos y una aplicación al precio del cobre.
 
 ## Sobre mí
