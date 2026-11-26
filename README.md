@@ -4,6 +4,7 @@
 
 [![Pruebas](https://github.com/paolojoveal/portafolio-finanzas/actions/workflows/pruebas.yml/badge.svg)](https://github.com/paolojoveal/portafolio-finanzas/actions/workflows/pruebas.yml)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-2a78d6)
+
 Siete proyectos en Python aplicados al mercado peruano. Cubren valorización, gestión de portafolios, riesgo de mercado y de crédito, política monetaria y finanzas corporativas. Cada uno responde una pregunta concreta, corre con un solo comando, declara sus supuestos y sus límites, y tiene pruebas automáticas que verifican los cálculos.
 
 ## Los proyectos
