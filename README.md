@@ -4,8 +4,6 @@
 
 [![Pruebas](https://github.com/paolojoveal/portafolio-finanzas/actions/workflows/pruebas.yml/badge.svg)](https://github.com/paolojoveal/portafolio-finanzas/actions/workflows/pruebas.yml)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-2a78d6)
-![Licencia MIT](https://img.shields.io/badge/licencia-MIT-52514e)
-
 Siete proyectos en Python aplicados al mercado peruano. Cubren valorización, gestión de portafolios, riesgo de mercado y de crédito, política monetaria y finanzas corporativas. Cada uno responde una pregunta concreta, corre con un solo comando, declara sus supuestos y sus límites, y tiene pruebas automáticas que verifican los cálculos.
 
 ## Los proyectos
@@ -100,3 +98,7 @@ tests/                        Pruebas automáticas
 Busco prácticas pre-profesionales en Banca de Inversión, Asset Management, Finanzas Corporativas, Estudios Económicos y Gestión de Riesgos en Lima.
 
 [LinkedIn](https://www.linkedin.com/in/paolo-jove-085647127)
+
+---
+
+<sub>© 2026 Paolo Jove. Todos los derechos reservados.</sub>
